@@ -54,7 +54,6 @@ post '/create_contact' do
 	scrub_name last_name
 	add_contact_to_simpledb first_name, last_name
 	add_contact_to_s3 first_name, last_name
-	#send notification
 
 	redirect to("/")
 
@@ -141,9 +140,31 @@ def add_contact_to_s3 first_name, last_name
 	s3_html = generate_s3_html first_name, last_name
 
 	cloudhw1.objects.create(s3_key, s3_html)
+
+	post_notification "#{first_name} #{last_name}", s3_html
 	
 	return
 
+end
+
+def post_notification name, url_suffix
+
+	sns = AWS::SNS.new(access_key_id: $access_key, secret_access_key: $secret_key)
+	topics = sns.topics
+	target_topic = nil
+	topics.each do |t|
+		if t.display_name.eql? "51083-updated"
+			target_topic = t
+		end
+	end
+
+	if !target_topic.nil?
+		target_topic.publish("name: #{name}\nurl: #{S3_URL_PREFIX}#{url_suffix}", :subject => "Contact created")
+
+		return true
+
+	end
+	
 end
 
 

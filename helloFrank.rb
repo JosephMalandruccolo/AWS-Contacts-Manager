@@ -53,7 +53,7 @@ post '/create_contact' do
 	scrub_name first_name
 	scrub_name last_name
 	add_contact_to_simpledb first_name, last_name
-	#post html object to s3
+	add_contact_to_s3 first_name, last_name
 	#send notification
 
 	redirect to("/")
@@ -131,6 +131,22 @@ def add_contact_to_simpledb first_name, last_name
 end
 
 
+# => add contact to s3
+def add_contact_to_s3 first_name, last_name
+
+	s3 = AWS::S3.new(access_key_id: $access_key, secret_access_key: $secret_key)
+	cloudhw1 = s3.buckets['cloudhw1']
+
+	s3_key = generate_s3_key first_name, last_name
+	s3_html = generate_s3_html first_name, last_name
+
+	cloudhw1.objects.create(s3_key, s3_html)
+	
+	return
+
+end
+
+
 # => read the saw S3 html and extract the needed data
 def parse_contacts contacts
 
@@ -146,6 +162,25 @@ def parse_contacts contacts
 	end
 	
 	names
+
+end
+
+
+# => generate the s3 key name
+def generate_s3_key first_name, last_name
+
+	"#{first_name}#{last_name}#{Time.new.to_i}.html".downcase
+	
+end
+
+
+# => generate the html file to store in s3
+def generate_s3_html first_name, last_name
+
+	header = "<html><head><title>Contact Page</title></head><body><table><tr><th>First Name</th><th>Last Name</th><th></th></tr>"
+	data = "<tr><td>#{first_name}</td><td>#{last_name}</td><td></td></tr></table></body></html>"
+	
+	"#{header}#{data}"
 
 end
 
@@ -193,7 +228,8 @@ __END__
 		<%	@parsed_contacts.each do |c| %>
 		<tr>
 			<td><%=	c.name 	%></td>
-			<td><%=	c.s3_link %></td></tr>
+			<td><%=	c.s3_link %></td>
+		</tr>
 		<% end %>
 	</table>
 	</body>
@@ -263,18 +299,3 @@ __END__
 		<%	end  %>
 	</body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
